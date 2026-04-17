@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exam — ExamPortal</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Prevent page navigation while exam is in progress */
+    body { overflow-x: hidden; }
+  </style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div id="loadingScreen" style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1rem;">
+  <div class="loading-spinner" style="width:40px;height:40px;border-width:4px;"></div>
+  <p class="text-muted">Loading exam...</p>
+</div>
+
+<!-- Error screen -->
+<div id="errorScreen" class="hidden" style="min-height:100vh;display:flex;align-items:center;justify-content:center;">
+  <div style="text-align:center;max-width:420px;padding:2rem;">
+    <span style="font-size:3rem;">⚠️</span>
+    <h2 id="errorTitle" class="mt-2">Unable to Load Exam</h2>
+    <p id="errorMsg" class="text-muted mt-1">An error occurred.</p>
+    <a href="student-dashboard.html" class="btn btn-primary mt-2">← Back to Dashboard</a>
+  </div>
+</div>
+
+<!-- Exam UI -->
+<div id="examUI" class="exam-page hidden">
+  <!-- Header -->
+  <header class="exam-header">
+    <div>
+      <h2 id="examTitle">Exam</h2>
+      <p class="text-sm text-muted" id="examMeta">— questions</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <div class="exam-timer" id="timer">--:--</div>
+      <button class="btn btn-danger btn-sm" onclick="confirmSubmit()">Submit Exam</button>
+    </div>
+  </header>
+
+  <!-- Body -->
+  <div class="exam-body">
+    <!-- Progress -->
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progressBar" style="width:0%"></div>
+    </div>
+
+    <!-- Question Card -->
+    <div class="question-card" id="questionCard">
+      <div class="question-header">
+        <span class="q-number" id="qNumber">Question 1 of 1</span>
+        <span class="q-marks" id="qMarks">1 mark</span>
+      </div>
+      <div class="question-text" id="qText">Loading...</div>
+      <div class="options-list" id="optionsList"></div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="exam-nav">
+      <button class="btn btn-outline" id="prevBtn" onclick="navigate(-1)" disabled>← Previous</button>
+      <span class="text-sm text-muted" id="answeredCount">0 / 0 answered</span>
+      <button class="btn btn-primary" id="nextBtn" onclick="navigate(1)">Next →</button>
+    </div>
+
+    <!-- Palette -->
+    <div class="question-palette">
+      <h4>Question Overview</h4>
+      <div class="palette-grid" id="paletteGrid"></div>
+      <div style="display:flex;gap:.75rem;margin-top:.75rem;font-size:.8rem;">
+        <span style="display:flex;align-items:center;gap:.3rem;"><span style="width:14px;height:14px;background:var(--primary);border-radius:3px;display:inline-block;"></span>Answered</span>
+        <span style="display:flex;align-items:center;gap:.3rem;"><span style="width:14px;height:14px;border:2px solid var(--gray-300);border-radius:3px;display:inline-block;"></span>Not Answered</span>
+        <span style="display:flex;align-items:center;gap:.3rem;"><span style="width:14px;height:14px;border:2px solid var(--warning);border-radius:3px;display:inline-block;"></span>Current</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Submit Confirm Modal -->
+<div class="modal-overlay" id="submitModal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>Submit Exam?</h3>
+      <button class="btn-close" onclick="closeModal('submitModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="submitSummary" class="text-sm">You have answered 0 out of 0 questions.</p>
+      <p class="text-sm text-muted mt-1">Once submitted, you cannot change your answers.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('submitModal')">Continue Exam</button>
+      <button class="btn btn-danger"  id="finalSubmitBtn" onclick="submitExam()">Submit Now</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script>
+const user = Auth.requireAuth('student');
+const examId = new URLSearchParams(window.location.search).get('id');
+
+let exam, questions, answers = {}, currentIndex = 0;
+let timerInterval, timeLeft = 0;
+
+/* ── Load Exam ──────────────────────────────────────────── */
+async function loadExam() {
+  if (!examId) return showError('Invalid exam link.', 'No exam ID provided.');
+
+  const { ok, data } = await API.get(`/exams/${examId}/attempt`);
+
+  document.getElementById('loadingScreen').classList.add('hidden');
+
+  if (!ok) {
+    if (data.message?.includes('already submitted')) {
+      showError('Already Submitted', 'You have already submitted this exam. Redirecting to result...');
+      setTimeout(() => window.location.href = `result.html?exam=${examId}`, 2500);
+    } else {
+      showError('Cannot Start Exam', data.message || 'Failed to load exam.');
+    }
+    return;
+  }
+
+  exam      = data.exam;
+  questions = data.questions;
+
+  // Init answers object
+  questions.forEach(q => { answers[q.id] = null; });
+
+  document.getElementById('examUI').classList.remove('hidden');
+  document.getElementById('examTitle').textContent = exam.title;
+  document.getElementById('examMeta').textContent  = `${questions.length} questions · ${exam.total_marks} marks · ${exam.subject}`;
+
+  startTimer(exam.duration_mins * 60);
+  buildPalette();
+  renderQuestion(0);
+
+  // Warn on page leave
+  window.addEventListener('beforeunload', e => { e.preventDefault(); e.returnValue = ''; });
+}
+
+function showError(title, msg) {
+  document.getElementById('loadingScreen').classList.add('hidden');
+  document.getElementById('errorScreen').classList.remove('hidden');
+  document.getElementById('errorTitle').textContent = title;
+  document.getElementById('errorMsg').textContent   = msg;
+}
+
+/* ── Timer ──────────────────────────────────────────────── */
+function startTimer(seconds) {
+  timeLeft = seconds;
+  updateTimerUI();
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    updateTimerUI();
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      autoSubmit();
+    }
+  }, 1000);
+}
+
+function updateTimerUI() {
+  const m  = Math.floor(timeLeft / 60).toString().padStart(2,'0');
+  const s  = (timeLeft % 60).toString().padStart(2,'0');
+  const el = document.getElementById('timer');
+  el.textContent = `${m}:${s}`;
+  el.classList.toggle('warning', timeLeft <= 300);
+}
+
+/* ── Question Rendering ─────────────────────────────────── */
+function renderQuestion(index) {
+  currentIndex = index;
+  const q = questions[index];
+
+  document.getElementById('qNumber').textContent = `Question ${index+1} of ${questions.length}`;
+  document.getElementById('qMarks').textContent  = `${q.marks} mark${q.marks > 1 ? 's' : ''}`;
+  document.getElementById('qText').textContent   = q.question_text;
+
+  const progress = ((index + 1) / questions.length) * 100;
+  document.getElementById('progressBar').style.width = progress + '%';
+
+  // Options
+  const opts = [
+    { key: 'A', text: q.option_a },
+    { key: 'B', text: q.option_b },
+    { key: 'C', text: q.option_c },
+    { key: 'D', text: q.option_d },
+  ];
+  document.getElementById('optionsList').innerHTML = opts.map(o => `
+    <div class="option-item ${answers[q.id] === o.key ? 'selected' : ''}"
+         onclick="selectAnswer(${q.id}, '${o.key}', this)">
+      <span class="option-letter">${o.key}</span>
+      <span class="option-text">${escapeHtml(o.text)}</span>
+    </div>
+  `).join('');
+
+  // Nav buttons
+  document.getElementById('prevBtn').disabled = (index === 0);
+  const isLast = index === questions.length - 1;
+  const nextBtn = document.getElementById('nextBtn');
+  nextBtn.textContent = isLast ? 'Review & Submit' : 'Next →';
+  nextBtn.className   = isLast ? 'btn btn-success' : 'btn btn-primary';
+  nextBtn.onclick     = isLast ? () => confirmSubmit() : () => navigate(1);
+
+  updateAnsweredCount();
+  updatePalette();
+}
+
+function selectAnswer(qId, key, el) {
+  answers[qId] = key;
+  document.querySelectorAll('.option-item').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  el.querySelector('.option-letter').style.background = 'var(--primary)';
+  el.querySelector('.option-letter').style.color      = '#fff';
+  updateAnsweredCount();
+  updatePalette();
+}
+
+function navigate(dir) {
+  const newIndex = currentIndex + dir;
+  if (newIndex >= 0 && newIndex < questions.length) {
+    renderQuestion(newIndex);
+  }
+}
+
+/* ── Palette ────────────────────────────────────────────── */
+function buildPalette() {
+  const grid = document.getElementById('paletteGrid');
+  grid.innerHTML = questions.map((q, i) => `
+    <button class="palette-btn" id="pb-${i}" onclick="renderQuestion(${i})">${i+1}</button>
+  `).join('');
+}
+
+function updatePalette() {
+  questions.forEach((q, i) => {
+    const btn = document.getElementById(`pb-${i}`);
+    if (!btn) return;
+    btn.classList.toggle('answered', answers[q.id] !== null);
+    btn.classList.toggle('current',  i === currentIndex);
+  });
+}
+
+function updateAnsweredCount() {
+  const n = Object.values(answers).filter(v => v !== null).length;
+  document.getElementById('answeredCount').textContent = `${n} / ${questions.length} answered`;
+}
+
+/* ── Submit ─────────────────────────────────────────────── */
+function confirmSubmit() {
+  const n = Object.values(answers).filter(v => v !== null).length;
+  document.getElementById('submitSummary').textContent =
+    `You have answered ${n} out of ${questions.length} questions. ${questions.length - n > 0 ? (questions.length - n) + ' question(s) will be marked as unanswered.' : 'All questions answered!'}`;
+  openModal('submitModal');
+}
+
+async function autoSubmit() {
+  alert('⏰ Time is up! Your exam is being submitted automatically.');
+  await doSubmit();
+}
+
+async function submitExam() {
+  closeModal('submitModal');
+  setLoading(document.getElementById('finalSubmitBtn'), true);
+  await doSubmit();
+}
+
+async function doSubmit() {
+  clearInterval(timerInterval);
+  window.removeEventListener('beforeunload', () => {});
+
+  // Convert null answers to 'NA'
+  const payload = {};
+  Object.entries(answers).forEach(([k, v]) => { payload[k] = v || 'NA'; });
+
+  const { ok, data } = await API.post(`/exams/${examId}/submit`, { answers: payload });
+
+  if (ok) {
+    window.location.href = `result.html?exam=${examId}&new=1`;
+  } else {
+    alert('Submission failed: ' + (data.message || 'Unknown error. Please try again.'));
+  }
+}
+
+// Initialize
+loadExam();
+</script>
+</body>
+</html>

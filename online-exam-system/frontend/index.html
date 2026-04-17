@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Online Examination System — Login</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+
+    <!-- Logo -->
+    <div class="auth-logo">
+      <div class="logo-icon">🎓</div>
+      <h1>ExamPortal</h1>
+      <p>Online Examination System</p>
+    </div>
+
+    <!-- Role Tabs -->
+    <div class="role-tabs" id="roleTabs">
+      <button class="role-tab active" data-role="student" onclick="switchRole('student')">👨‍🎓 Student</button>
+      <button class="role-tab"        data-role="teacher" onclick="switchRole('teacher')">👨‍🏫 Teacher</button>
+    </div>
+
+    <!-- Alert -->
+    <div id="alertBox" class="hidden"></div>
+
+    <!-- Login Form -->
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" placeholder="you@example.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" id="loginBtn">Login</button>
+    </form>
+
+    <!-- Register link (students only) -->
+    <p class="text-center text-sm mt-2" id="registerLink">
+      Don't have an account?
+      <a href="register.html">Register here</a>
+    </p>
+    <p class="text-center text-sm mt-2 hidden" id="teacherNote">
+      <span class="text-muted">Contact admin to create teacher accounts.</span>
+    </p>
+
+    <!-- Demo credentials -->
+    <div class="alert alert-info mt-2" style="font-size:.8rem;">
+      <div>
+        <strong>Demo Credentials</strong><br>
+        🎓 Student: rahul@student.edu / Password@123<br>
+        👨‍🏫 Teacher: anita@college.edu / Password@123
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script>
+  // Redirect if already logged in
+  if (Auth.isLoggedIn()) {
+    const u = Auth.getUser();
+    window.location.href = u?.role === 'teacher' ? 'teacher-dashboard.html' : 'student-dashboard.html';
+  }
+
+  let currentRole = 'student';
+
+  function switchRole(role) {
+    currentRole = role;
+    document.querySelectorAll('.role-tab').forEach(t => t.classList.toggle('active', t.dataset.role === role));
+    document.getElementById('registerLink').classList.toggle('hidden', role === 'teacher');
+    document.getElementById('teacherNote').classList.toggle('hidden', role === 'student');
+    clearAlert('alertBox');
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    clearAlert('alertBox');
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const btn      = document.getElementById('loginBtn');
+
+    setLoading(btn, true);
+    const endpoint = currentRole === 'teacher' ? '/auth/teacher/login' : '/auth/student/login';
+    const { ok, data } = await API.post(endpoint, { email, password });
+    setLoading(btn, false);
+
+    if (ok) {
+      Auth.setSession(data.token, data.user);
+      window.location.href = data.user.role === 'teacher' ? 'teacher-dashboard.html' : 'student-dashboard.html';
+    } else {
+      showAlert('alertBox', data.message || 'Login failed. Please check your credentials.', 'error');
+    }
+  }
+</script>
+</body>
+</html>

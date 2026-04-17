@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Students — ExamPortal Teacher</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">🎓</div><span>ExamPortal</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Main</div>
+      <button class="nav-item" onclick="window.location.href='teacher-dashboard.html'"><span class="icon">🏠</span>Dashboard</button>
+      <button class="nav-item" onclick="window.location.href='teacher-dashboard.html'"><span class="icon">📝</span>Question Bank</button>
+      <button class="nav-item" onclick="window.location.href='teacher-dashboard.html'"><span class="icon">📋</span>Exams</button>
+      <button class="nav-item" onclick="window.location.href='teacher-dashboard.html'"><span class="icon">📊</span>Results</button>
+      <div class="nav-section">Management</div>
+      <button class="nav-item active"><span class="icon">👥</span>Students</button>
+      <div class="nav-section">Account</div>
+      <button class="nav-item" onclick="logout()"><span class="icon">🚪</span>Logout</button>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="sidebar-avatar">T</div>
+      <div class="user-info">
+        <div class="name" id="sidebar-name">Teacher</div>
+        <div class="role" id="sidebar-role">Teacher</div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div class="topbar">
+      <div class="topbar-title"><h2>All Students</h2><p>Registered students on the platform</p></div>
+      <div style="display:flex;gap:.75rem;align-items:center;">
+        <input type="text" id="searchBox" placeholder="🔍 Search by name or roll no..." oninput="filterStudents()"
+               style="padding:.55rem .9rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-size:.875rem;width:240px;outline:none;">
+      </div>
+    </div>
+
+    <div class="page-content">
+      <!-- Stats -->
+      <div class="stats-grid mb-2">
+        <div class="stat-card"><div class="stat-icon green">👥</div><div><div class="stat-value" id="totalStudents">—</div><div class="stat-label">Total Students</div></div></div>
+        <div class="stat-card"><div class="stat-icon blue">🏫</div><div><div class="stat-value" id="totalDepts">—</div><div class="stat-label">Departments</div></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Student Directory</h3>
+          <span id="shownCount" class="badge badge-gray">Loading…</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Name</th><th>Email</th><th>Roll Number</th><th>Department</th><th>Registered</th></tr>
+            </thead>
+            <tbody id="studentsTable">
+              <tr><td colspan="6" class="text-center" style="padding:2.5rem;color:var(--gray-400);">Loading students…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="js/utils.js"></script>
+<script>
+Auth.requireAuth('teacher');
+renderSidebarUser();
+
+let allStudents = [];
+
+async function loadStudents() {
+  const { ok, data } = await API.get('/exams/students-list');
+  if (!ok) return;
+
+  allStudents = data.data || [];
+
+  // Compute dept count
+  const depts = new Set(allStudents.map(s => s.department).filter(Boolean));
+  document.getElementById('totalStudents').textContent = allStudents.length;
+  document.getElementById('totalDepts').textContent    = depts.size;
+
+  renderTable(allStudents);
+}
+
+function renderTable(students) {
+  const tbody = document.getElementById('studentsTable');
+  document.getElementById('shownCount').textContent = `${students.length} students`;
+
+  if (!students.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding:2.5rem;color:var(--gray-400);">No students found.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = students.map((s, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:.65rem;">
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;flex-shrink:0;">
+            ${escapeHtml(getInitials(s.name))}
+          </div>
+          <strong>${escapeHtml(s.name)}</strong>
+        </div>
+      </td>
+      <td>${escapeHtml(s.email)}</td>
+      <td><code style="background:var(--gray-100);padding:.1rem .4rem;border-radius:4px;font-size:.82rem;">${escapeHtml(s.roll_number)}</code></td>
+      <td>${s.department ? `<span class="badge badge-info">${escapeHtml(s.department)}</span>` : '<span class="text-muted">—</span>'}</td>
+      <td class="text-muted" style="font-size:.8rem;">Registered</td>
+    </tr>
+  `).join('');
+}
+
+function filterStudents() {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  if (!q) { renderTable(allStudents); return; }
+  const filtered = allStudents.filter(s =>
+    s.name.toLowerCase().includes(q) ||
+    s.roll_number.toLowerCase().includes(q) ||
+    (s.email || '').toLowerCase().includes(q) ||
+    (s.department || '').toLowerCase().includes(q)
+  );
+  renderTable(filtered);
+}
+
+loadStudents();
+</script>
+</body>
+</html>

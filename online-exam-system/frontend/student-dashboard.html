@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard — ExamPortal</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- ── Sidebar ─────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">🎓</div>
+      <span>ExamPortal</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Main</div>
+      <button class="nav-item active" onclick="showSection('dashboard')"><span class="icon">🏠</span>Dashboard</button>
+      <button class="nav-item"        onclick="showSection('exams')">    <span class="icon">📋</span>My Exams</button>
+      <button class="nav-item"        onclick="showSection('results')">  <span class="icon">📊</span>My Results</button>
+      <div class="nav-section">Account</div>
+      <button class="nav-item"        onclick="logout()">                <span class="icon">🚪</span>Logout</button>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="sidebar-avatar">S</div>
+      <div class="user-info">
+        <div class="name" id="sidebar-name">Student</div>
+        <div class="role" id="sidebar-role">Student</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main Content ────────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- Dashboard Section -->
+    <section id="sec-dashboard">
+      <div class="topbar">
+        <div class="topbar-title"><h2>Dashboard</h2><p id="welcome-msg">Welcome!</p></div>
+      </div>
+      <div class="page-content">
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-icon purple">📋</div><div><div class="stat-value" id="stat-enrolled">—</div><div class="stat-label">Enrolled Exams</div></div></div>
+          <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-value" id="stat-attempted">—</div><div class="stat-label">Attempted</div></div></div>
+          <div class="stat-card"><div class="stat-icon blue">📈</div><div><div class="stat-value" id="stat-avg">—</div><div class="stat-label">Avg Score</div></div></div>
+          <div class="stat-card"><div class="stat-icon orange">🏆</div><div><div class="stat-value" id="stat-best">—</div><div class="stat-label">Best Score</div></div></div>
+        </div>
+        <div class="card mt-2">
+          <div class="card-header"><h3>Upcoming / Active Exams</h3></div>
+          <div class="card-body" id="upcomingExams">Loading...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Exams Section -->
+    <section id="sec-exams" class="hidden">
+      <div class="topbar">
+        <div class="topbar-title"><h2>My Exams</h2><p>Exams you are enrolled in</p></div>
+      </div>
+      <div class="page-content">
+        <div id="examsGrid" class="exam-grid">Loading...</div>
+      </div>
+    </section>
+
+    <!-- Results Section -->
+    <section id="sec-results" class="hidden">
+      <div class="topbar">
+        <div class="topbar-title"><h2>My Results</h2><p>View your exam performance</p></div>
+      </div>
+      <div class="page-content">
+        <div class="card">
+          <div class="card-header"><h3>All Results</h3></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>#</th><th>Exam</th><th>Subject</th><th>Score</th><th>Percentage</th><th>Grade</th><th>Date</th><th></th></tr>
+              </thead>
+              <tbody id="resultsTable"><tr><td colspan="8" class="text-center" style="padding:2rem;">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="js/utils.js"></script>
+<script>
+const user = Auth.requireAuth('student');
+renderSidebarUser();
+document.getElementById('welcome-msg').textContent = `Welcome, ${user.name}! (${user.roll_number})`;
+
+const sections = ['dashboard','exams','results'];
+function showSection(name) {
+  sections.forEach(s => document.getElementById(`sec-${s}`).classList.toggle('hidden', s !== name));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => {
+    if (b.textContent.toLowerCase().includes(name.substring(0,4))) b.classList.add('active');
+  });
+  if (name === 'dashboard') { loadStats(); loadUpcomingExams(); }
+  if (name === 'exams')     loadAllExams();
+  if (name === 'results')   loadResults();
+}
+showSection('dashboard');
+
+/* ── Dashboard ───────────────────────────────────────────── */
+async function loadStats() {
+  const { ok, data } = await API.get('/results/student/summary');
+  if (ok) {
+    document.getElementById('stat-enrolled').textContent  = data.stats.enrolled;
+    document.getElementById('stat-attempted').textContent = data.stats.attempted;
+    document.getElementById('stat-avg').textContent       = data.stats.avg_score + '%';
+    document.getElementById('stat-best').textContent      = data.stats.best_score + '%';
+  }
+}
+
+async function loadUpcomingExams() {
+  const { ok, data } = await API.get('/exams/student');
+  const container = document.getElementById('upcomingExams');
+  if (!ok || !data.data?.length) {
+    container.innerHTML = '<div class="empty-state"><span class="icon">📭</span>No active exams enrolled.</div>';
+    return;
+  }
+  // Show only exams not yet attempted
+  const pending = data.data.filter(e => e.my_score === null);
+  if (!pending.length) {
+    container.innerHTML = '<p class="text-muted text-sm">All enrolled exams have been completed. 🎉</p>';
+    return;
+  }
+  container.innerHTML = `<div class="exam-grid">${pending.slice(0,3).map(e => examCard(e)).join('')}</div>`;
+}
+
+function examCard(e) {
+  const attempted = e.my_score !== null;
+  return `
+    <div class="exam-card">
+      <div class="exam-card-header">
+        <h4>${escapeHtml(e.title)}</h4>
+        <span class="badge ${attempted ? 'badge-success' : 'badge-info'}">${attempted ? 'Done' : 'Active'}</span>
+      </div>
+      <div class="exam-meta">
+        <span>📚 ${escapeHtml(e.subject)}</span>
+        <span>⏱️ ${e.duration_mins} min</span>
+        <span>❓ ${e.question_count} questions</span>
+        <span>🏫 ${escapeHtml(e.teacher_name)}</span>
+      </div>
+      ${attempted
+        ? `<p class="text-sm text-muted">Score: <strong>${e.my_percentage}%</strong></p>
+           <a href="result.html?exam=${e.id}" class="btn btn-outline btn-sm">View Result</a>`
+        : `<a href="exam.html?id=${e.id}" class="btn btn-primary btn-sm">Start Exam →</a>`
+      }
+    </div>
+  `;
+}
+
+/* ── All Exams ───────────────────────────────────────────── */
+async function loadAllExams() {
+  const { ok, data } = await API.get('/exams/student');
+  const grid = document.getElementById('examsGrid');
+  if (!ok || !data.data?.length) {
+    grid.innerHTML = '<div class="empty-state"><span class="icon">📭</span>No exams enrolled.</div>';
+    return;
+  }
+  grid.innerHTML = data.data.map(e => examCard(e)).join('');
+}
+
+/* ── Results ─────────────────────────────────────────────── */
+async function loadResults() {
+  const { ok, data } = await API.get('/results/student');
+  const tbody = document.getElementById('resultsTable');
+  if (!ok || !data.data?.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:2rem;">No results yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.data.map((r, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${escapeHtml(r.exam_title)}</strong></td>
+      <td>${escapeHtml(r.subject)}</td>
+      <td>${r.score} / ${r.total_marks}</td>
+      <td>${r.percentage}%</td>
+      <td><span class="badge badge-${gradeColor(r.grade)}">${r.grade}</span></td>
+      <td style="white-space:nowrap;">${formatDate(r.submitted_at)}</td>
+      <td><a href="result.html?exam=${r.exam_id}" class="btn btn-outline btn-sm">Details</a></td>
+    </tr>
+  `).join('');
+}
+</script>
+</body>
+</html>

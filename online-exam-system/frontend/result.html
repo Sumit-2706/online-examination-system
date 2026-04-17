@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exam Result — ExamPortal</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body style="background:var(--gray-50);">
+
+<div style="min-height:100vh;max-width:800px;margin:0 auto;padding:1.5rem;">
+
+  <!-- Back link -->
+  <div style="margin-bottom:1rem;">
+    <a href="student-dashboard.html" class="btn btn-outline btn-sm">← Back to Dashboard</a>
+  </div>
+
+  <!-- Loading -->
+  <div id="loadingScreen" style="text-align:center;padding:4rem;">
+    <div class="loading-spinner" style="width:36px;height:36px;border-width:3px;margin:0 auto;"></div>
+    <p class="text-muted mt-1">Loading result...</p>
+  </div>
+
+  <!-- Error -->
+  <div id="errorScreen" class="hidden" style="text-align:center;padding:4rem;">
+    <span style="font-size:3rem;">⚠️</span>
+    <h2 id="errMsg" class="mt-2">Result not found.</h2>
+  </div>
+
+  <!-- Result Content -->
+  <div id="resultContent" class="hidden">
+
+    <!-- Score Card -->
+    <div class="result-score-card">
+      <p style="opacity:.85;font-size:.9rem;margin-bottom:.25rem;" id="examTitleLabel">Exam Result</p>
+      <div class="score-big" id="scorePercentage">0%</div>
+      <div class="score-label" id="scoreLabel">0 / 0 marks</div>
+      <div class="grade-badge" id="gradeLabel">F</div>
+      <div class="result-meta">
+        <span id="subjectLabel">Subject</span>
+        <span id="submittedLabel">Submitted</span>
+        <span id="correctCount">0 correct</span>
+      </div>
+    </div>
+
+    <!-- Performance Bar -->
+    <div class="card mb-2">
+      <div class="card-body">
+        <p class="text-sm" style="display:flex;justify-content:space-between;margin-bottom:.4rem;">
+          <span>Performance</span>
+          <strong id="perfPercent">0%</strong>
+        </p>
+        <div class="progress-bar-wrap" style="height:10px;">
+          <div class="progress-bar" id="perfBar" style="width:0%;background:var(--success);transition:width 1s .3s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:.4rem;font-size:.75rem;color:var(--gray-400);">
+          <span>0%</span><span>50% (Pass)</span><span>100%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Answer Review -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Answer Review</h3>
+        <span id="reviewSummary" class="text-sm text-muted"></span>
+      </div>
+      <div class="card-body">
+        <div class="answer-review" id="answerReview"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:.75rem;margin-top:1.5rem;justify-content:center;">
+      <a href="student-dashboard.html" class="btn btn-outline">← Dashboard</a>
+      <a href="student-dashboard.html?section=exams" class="btn btn-primary">View All Exams</a>
+    </div>
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script>
+const user   = Auth.requireAuth('student');
+const params = new URLSearchParams(window.location.search);
+const examId = params.get('exam');
+const isNew  = params.get('new') === '1';
+
+async function loadResult() {
+  if (!examId) return showError('Invalid result link.');
+
+  const { ok, data } = await API.get(`/results/student/${examId}`);
+  document.getElementById('loadingScreen').classList.add('hidden');
+
+  if (!ok) return showError(data.message || 'Result not found.');
+
+  const r = data.result;
+  const a = data.answers;
+
+  document.getElementById('resultContent').classList.remove('hidden');
+
+  // Score card
+  document.getElementById('examTitleLabel').textContent  = escapeHtml(r.exam_title || 'Exam Result');
+  document.getElementById('scorePercentage').textContent = r.percentage + '%';
+  document.getElementById('scoreLabel').textContent      = `${r.score} out of ${r.total_marks} marks`;
+  document.getElementById('gradeLabel').textContent      = `Grade: ${r.grade}`;
+  document.getElementById('subjectLabel').textContent    = '📚 ' + (r.subject || '');
+  document.getElementById('submittedLabel').textContent  = '🕐 ' + formatDate(r.submitted_at);
+
+  const correct = a.filter(x => x.is_correct).length;
+  document.getElementById('correctCount').textContent = `✅ ${correct} / ${a.length} correct`;
+
+  // Performance bar
+  const pct = parseFloat(r.percentage);
+  document.getElementById('perfPercent').textContent = pct + '%';
+  document.getElementById('reviewSummary').textContent = `${correct} correct, ${a.length - correct} incorrect`;
+  setTimeout(() => {
+    const bar = document.getElementById('perfBar');
+    bar.style.width = pct + '%';
+    if (pct < 50) bar.style.background = 'var(--danger)';
+    else if (pct < 75) bar.style.background = 'var(--warning)';
+    else bar.style.background = 'var(--success)';
+  }, 100);
+
+  // Answer review
+  const optionText = (q, key) => {
+    const map = { A: q.option_a, B: q.option_b, C: q.option_c, D: q.option_d };
+    return key !== 'NA' ? `${key}: ${escapeHtml(map[key] || '')}` : 'Not answered';
+  };
+
+  document.getElementById('answerReview').innerHTML = a.map((item, i) => `
+    <div class="answer-item ${item.is_correct ? 'correct-ans' : 'wrong-ans'}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;margin-bottom:.4rem;">
+        <div class="q-text"><strong>Q${i+1}.</strong> ${escapeHtml(item.question_text)}</div>
+        <span class="badge ${item.is_correct ? 'badge-success' : 'badge-danger'}" style="flex-shrink:0;">
+          ${item.is_correct ? `+${item.marks}` : '0'}
+        </span>
+      </div>
+      <div class="answer-chips">
+        <span class="chip chip-chosen">Your answer: ${optionText(item, item.chosen_answer)}</span>
+        ${!item.is_correct ? `<span class="chip chip-correct">Correct: ${optionText(item, item.correct_answer)}</span>` : ''}
+      </div>
+    </div>
+  `).join('');
+
+  if (isNew) {
+    setTimeout(() => {
+      const msg = pct >= 50
+        ? `🎉 Congratulations! You passed with ${pct}%!`
+        : `📚 You scored ${pct}%. Study harder for next time!`;
+      alert(msg);
+    }, 400);
+  }
+}
+
+function showError(msg) {
+  document.getElementById('loadingScreen').classList.add('hidden');
+  document.getElementById('errorScreen').classList.remove('hidden');
+  document.getElementById('errMsg').textContent = msg;
+}
+
+loadResult();
+</script>
+</body>
+</html>

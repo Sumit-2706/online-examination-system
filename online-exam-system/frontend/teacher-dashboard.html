@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teacher Dashboard — ExamPortal</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- ── Sidebar ─────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">🎓</div>
+      <span>ExamPortal</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Main</div>
+      <button class="nav-item active" onclick="showSection('dashboard')"><span class="icon">🏠</span>Dashboard</button>
+      <button class="nav-item"        onclick="showSection('questions')"><span class="icon">📝</span>Question Bank</button>
+      <button class="nav-item"        onclick="showSection('exams')">   <span class="icon">📋</span>Exams</button>
+      <button class="nav-item"        onclick="showSection('results')"> <span class="icon">📊</span>Results</button>
+      <div class="nav-section">Account</div>
+      <button class="nav-item"        onclick="logout()">               <span class="icon">🚪</span>Logout</button>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="sidebar-avatar">T</div>
+      <div class="user-info">
+        <div class="name" id="sidebar-name">Teacher</div>
+        <div class="role" id="sidebar-role">Teacher</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main Content ────────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- Dashboard Section -->
+    <section id="sec-dashboard">
+      <div class="topbar">
+        <div class="topbar-title">
+          <h2>Dashboard</h2>
+          <p id="welcome-msg">Welcome back!</p>
+        </div>
+      </div>
+      <div class="page-content">
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card"><div class="stat-icon purple">📋</div><div><div class="stat-value" id="stat-exams">—</div><div class="stat-label">Total Exams</div></div></div>
+          <div class="stat-card"><div class="stat-icon blue">❓</div><div><div class="stat-value" id="stat-questions">—</div><div class="stat-label">Questions</div></div></div>
+          <div class="stat-card"><div class="stat-icon green">👥</div><div><div class="stat-value" id="stat-students">—</div><div class="stat-label">Students Enrolled</div></div></div>
+          <div class="stat-card"><div class="stat-icon orange">📊</div><div><div class="stat-value" id="stat-results">—</div><div class="stat-label">Attempts Submitted</div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Quick Actions</h3></div>
+          <div class="card-body" style="display:flex;gap:.75rem;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="showSection('questions'); openModal('addQuestionModal')">➕ Add Question</button>
+            <button class="btn btn-success" onclick="showSection('exams'); openModal('createExamModal')">📋 Create Exam</button>
+            <button class="btn btn-outline" onclick="showSection('results')">📊 View Results</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Question Bank Section -->
+    <section id="sec-questions" class="hidden">
+      <div class="topbar">
+        <div class="topbar-title"><h2>Question Bank</h2><p>Manage your MCQ questions</p></div>
+        <button class="btn btn-primary" onclick="openAddQuestion()">➕ Add Question</button>
+      </div>
+      <div class="page-content">
+        <!-- Filters -->
+        <div class="card mb-2">
+          <div class="card-body" style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;">
+            <div class="form-group" style="margin:0;flex:1;min-width:150px;">
+              <label>Filter by Subject</label>
+              <input type="text" id="filterSubject" placeholder="e.g. Computer Science" oninput="loadQuestions()">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Difficulty</label>
+              <select id="filterDifficulty" onchange="loadQuestions()">
+                <option value="">All</option>
+                <option>Easy</option>
+                <option>Medium</option>
+                <option>Hard</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div id="alertBox-q" class="hidden"></div>
+        <div class="card">
+          <div class="card-header"><h3>All Questions</h3><span id="qCount" class="badge badge-gray">0</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>#</th><th>Question</th><th>Subject</th><th>Difficulty</th><th>Marks</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="questionsTable">
+                <tr><td colspan="6" class="text-center text-muted" style="padding:2rem;">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Exams Section -->
+    <section id="sec-exams" class="hidden">
+      <div class="topbar">
+        <div class="topbar-title"><h2>Exam Management</h2><p>Create and manage exams</p></div>
+        <button class="btn btn-primary" onclick="openCreateExam()">📋 Create Exam</button>
+      </div>
+      <div class="page-content">
+        <div id="alertBox-e" class="hidden"></div>
+        <div class="card">
+          <div class="card-header"><h3>All Exams</h3><span id="examCount" class="badge badge-gray">0</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Title</th><th>Subject</th><th>Duration</th><th>Scheduled</th><th>Q's</th><th>Students</th><th>Status</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="examsTable">
+                <tr><td colspan="8" class="text-center text-muted" style="padding:2rem;">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results Section -->
+    <section id="sec-results" class="hidden">
+      <div class="topbar">
+        <div class="topbar-title"><h2>Results</h2><p>View student performance</p></div>
+      </div>
+      <div class="page-content">
+        <div class="form-group" style="max-width:340px;">
+          <label>Select Exam to View Results</label>
+          <select id="resultExamSelect" onchange="loadExamResults()">
+            <option value="">— Select an exam —</option>
+          </select>
+        </div>
+        <div id="resultsContainer" class="hidden">
+          <!-- Stats -->
+          <div class="stats-grid mb-2" id="resultStats"></div>
+          <div class="card">
+            <div class="card-header"><h3 id="resultExamTitle">Results</h3></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>#</th><th>Student</th><th>Roll No.</th><th>Score</th><th>%</th><th>Grade</th><th>Submitted</th></tr>
+                </thead>
+                <tbody id="resultsTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div id="resultsEmpty" class="empty-state"><span class="icon">📊</span>Select an exam to view results</div>
+      </div>
+    </section>
+
+  </main><!-- /main-content -->
+</div>
+
+<!-- ── ADD QUESTION MODAL ──────────────────────────────────── -->
+<div class="modal-overlay" id="addQuestionModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="qModalTitle">Add New Question</h3>
+      <button class="btn-close" onclick="closeModal('addQuestionModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="alertBox-qm" class="hidden"></div>
+      <input type="hidden" id="editQId">
+      <div class="form-group">
+        <label>Question Text *</label>
+        <textarea id="q_question_text" rows="3" placeholder="Enter the question..." required></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Option A *</label><input type="text" id="q_option_a" placeholder="Option A" required></div>
+        <div class="form-group"><label>Option B *</label><input type="text" id="q_option_b" placeholder="Option B" required></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Option C *</label><input type="text" id="q_option_c" placeholder="Option C" required></div>
+        <div class="form-group"><label>Option D *</label><input type="text" id="q_option_d" placeholder="Option D" required></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Correct Answer *</label>
+          <select id="q_correct_answer" required>
+            <option value="">Select</option>
+            <option value="A">A</option><option value="B">B</option>
+            <option value="C">C</option><option value="D">D</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Subject *</label>
+          <input type="text" id="q_subject" placeholder="e.g. Computer Science" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Difficulty</label>
+          <select id="q_difficulty">
+            <option value="Easy">Easy</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="Hard">Hard</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Marks</label>
+          <input type="number" id="q_marks" value="1" min="1" max="10">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('addQuestionModal')">Cancel</button>
+      <button class="btn btn-primary" id="saveQBtn" onclick="saveQuestion()">Save Question</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CREATE EXAM MODAL ───────────────────────────────────── -->
+<div class="modal-overlay" id="createExamModal">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header">
+      <h3>Create New Exam</h3>
+      <button class="btn-close" onclick="closeModal('createExamModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="alertBox-em" class="hidden"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Exam Title *</label>
+          <input type="text" id="e_title" placeholder="e.g. Mid-Term CS" required>
+        </div>
+        <div class="form-group">
+          <label>Subject *</label>
+          <input type="text" id="e_subject" placeholder="e.g. Computer Science" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="e_description" rows="2" placeholder="Optional exam description..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Duration (minutes) *</label>
+          <input type="number" id="e_duration" value="30" min="5" max="300" required>
+        </div>
+        <div class="form-group">
+          <label>Scheduled At *</label>
+          <input type="datetime-local" id="e_scheduled_at" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Select Questions *</label>
+        <div class="checkbox-list" id="questionPickerList"><p class="text-muted text-sm" style="padding:.5rem;">Loading questions...</p></div>
+        <p class="text-sm text-muted mt-1" id="qSelectedCount">0 questions selected</p>
+      </div>
+      <div class="form-group">
+        <label>Enroll Students</label>
+        <div class="checkbox-list" id="studentPickerList"><p class="text-muted text-sm" style="padding:.5rem;">Loading students...</p></div>
+        <p class="text-sm text-muted mt-1" id="sSelectedCount">0 students selected</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('createExamModal')">Cancel</button>
+      <button class="btn btn-success" id="createExamBtn" onclick="createExam()">📋 Create Exam</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script>
+const user = Auth.requireAuth('teacher');
+renderSidebarUser();
+document.getElementById('welcome-msg').textContent = `Welcome back, ${user.name}!`;
+
+/* ── Section Navigation ──────────────────────────────────── */
+const sections = ['dashboard','questions','exams','results'];
+function showSection(name) {
+  sections.forEach(s => {
+    document.getElementById(`sec-${s}`).classList.toggle('hidden', s !== name);
+  });
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => {
+    if (b.textContent.toLowerCase().includes(name.substring(0,4))) b.classList.add('active');
+  });
+  if (name === 'dashboard')  loadDashboardStats();
+  if (name === 'questions')  loadQuestions();
+  if (name === 'exams')      loadExams();
+  if (name === 'results')    loadResultsExamList();
+}
+showSection('dashboard');
+
+/* ── Dashboard ───────────────────────────────────────────── */
+async function loadDashboardStats() {
+  const { ok, data } = await API.get('/results/teacher/summary');
+  if (ok) {
+    document.getElementById('stat-exams').textContent     = data.stats.exam_count;
+    document.getElementById('stat-questions').textContent = data.stats.question_count;
+    document.getElementById('stat-students').textContent  = data.stats.student_count;
+    document.getElementById('stat-results').textContent   = data.stats.result_count;
+  }
+}
+
+/* ── Questions ───────────────────────────────────────────── */
+async function loadQuestions() {
+  const subject    = document.getElementById('filterSubject')?.value || '';
+  const difficulty = document.getElementById('filterDifficulty')?.value || '';
+  let url = '/questions';
+  const params = [];
+  if (subject)    params.push(`subject=${encodeURIComponent(subject)}`);
+  if (difficulty) params.push(`difficulty=${difficulty}`);
+  if (params.length) url += '?' + params.join('&');
+
+  const { ok, data } = await API.get(url);
+  const tbody = document.getElementById('questionsTable');
+
+  if (!ok || !data.data?.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted" style="padding:2rem;">No questions found.</td></tr>`;
+    document.getElementById('qCount').textContent = '0';
+    return;
+  }
+  document.getElementById('qCount').textContent = data.data.length;
+  tbody.innerHTML = data.data.map((q, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td style="max-width:300px;">${escapeHtml(q.question_text.substring(0,80))}${q.question_text.length > 80 ? '…' : ''}</td>
+      <td>${escapeHtml(q.subject)}</td>
+      <td><span class="badge badge-${q.difficulty === 'Easy' ? 'success' : q.difficulty === 'Hard' ? 'danger' : 'warning'}">${q.difficulty}</span></td>
+      <td>${q.marks}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="editQuestion(${q.id})">✏️</button>
+        <button class="btn btn-danger btn-sm"  onclick="deleteQuestion(${q.id})">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openAddQuestion() {
+  document.getElementById('qModalTitle').textContent = 'Add New Question';
+  document.getElementById('editQId').value = '';
+  ['q_question_text','q_option_a','q_option_b','q_option_c','q_option_d','q_subject'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('q_correct_answer').value = '';
+  document.getElementById('q_difficulty').value = 'Medium';
+  document.getElementById('q_marks').value = 1;
+  clearAlert('alertBox-qm');
+  openModal('addQuestionModal');
+}
+
+async function editQuestion(id) {
+  const { ok, data } = await API.get(`/questions/${id}`);
+  if (!ok) return;
+  const q = data.data;
+  document.getElementById('qModalTitle').textContent = 'Edit Question';
+  document.getElementById('editQId').value        = q.id;
+  document.getElementById('q_question_text').value = q.question_text;
+  document.getElementById('q_option_a').value      = q.option_a;
+  document.getElementById('q_option_b').value      = q.option_b;
+  document.getElementById('q_option_c').value      = q.option_c;
+  document.getElementById('q_option_d').value      = q.option_d;
+  document.getElementById('q_correct_answer').value= q.correct_answer;
+  document.getElementById('q_subject').value       = q.subject;
+  document.getElementById('q_difficulty').value    = q.difficulty;
+  document.getElementById('q_marks').value         = q.marks;
+  openModal('addQuestionModal');
+}
+
+async function saveQuestion() {
+  clearAlert('alertBox-qm');
+  const id = document.getElementById('editQId').value;
+  const payload = {
+    question_text:  document.getElementById('q_question_text').value.trim(),
+    option_a:       document.getElementById('q_option_a').value.trim(),
+    option_b:       document.getElementById('q_option_b').value.trim(),
+    option_c:       document.getElementById('q_option_c').value.trim(),
+    option_d:       document.getElementById('q_option_d').value.trim(),
+    correct_answer: document.getElementById('q_correct_answer').value,
+    subject:        document.getElementById('q_subject').value.trim(),
+    difficulty:     document.getElementById('q_difficulty').value,
+    marks:          parseInt(document.getElementById('q_marks').value),
+  };
+  if (!payload.question_text || !payload.option_a || !payload.correct_answer || !payload.subject) {
+    return showAlert('alertBox-qm', 'Please fill all required fields.', 'error');
+  }
+  const btn = document.getElementById('saveQBtn');
+  setLoading(btn, true);
+  const res = id
+    ? await API.put(`/questions/${id}`, payload)
+    : await API.post('/questions', payload);
+  setLoading(btn, false);
+  if (res.ok) {
+    closeModal('addQuestionModal');
+    loadQuestions();
+  } else {
+    showAlert('alertBox-qm', res.data.message || 'Failed to save question.', 'error');
+  }
+}
+
+async function deleteQuestion(id) {
+  if (!confirm('Delete this question? This cannot be undone.')) return;
+  const { ok, data } = await API.delete(`/questions/${id}`);
+  if (ok) loadQuestions();
+  else    showAlert('alertBox-q', data.message || 'Delete failed.', 'error');
+}
+
+/* ── Exams ───────────────────────────────────────────────── */
+async function loadExams() {
+  const { ok, data } = await API.get('/exams/teacher');
+  const tbody = document.getElementById('examsTable');
+  if (!ok || !data.data?.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted" style="padding:2rem;">No exams created yet.</td></tr>`;
+    document.getElementById('examCount').textContent = '0';
+    return;
+  }
+  document.getElementById('examCount').textContent = data.data.length;
+  tbody.innerHTML = data.data.map(e => `
+    <tr>
+      <td><strong>${escapeHtml(e.title)}</strong></td>
+      <td>${escapeHtml(e.subject)}</td>
+      <td>${e.duration_mins} min</td>
+      <td style="white-space:nowrap;">${formatDate(e.scheduled_at)}</td>
+      <td>${e.question_count}</td>
+      <td>${e.student_count}</td>
+      <td><span class="badge ${e.is_active ? 'badge-success' : 'badge-gray'}">${e.is_active ? 'Active' : 'Inactive'}</span></td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-outline btn-sm" onclick="toggleExam(${e.id})">${e.is_active ? 'Deactivate' : 'Activate'}</button>
+        <button class="btn btn-danger btn-sm"  onclick="deleteExam(${e.id})">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function openCreateExam() {
+  clearAlert('alertBox-em');
+  // Set default scheduled time to now + 1 hour
+  const d = new Date(Date.now() + 3600000);
+  document.getElementById('e_scheduled_at').value = d.toISOString().slice(0,16);
+
+  // Load questions for picker
+  const { ok: qok, data: qdata } = await API.get('/questions');
+  const qList = document.getElementById('questionPickerList');
+  if (!qok || !qdata.data?.length) {
+    qList.innerHTML = '<p class="text-muted text-sm" style="padding:.5rem;">No questions available. Add some first.</p>';
+  } else {
+    qList.innerHTML = qdata.data.map(q => `
+      <label class="checkbox-item">
+        <input type="checkbox" name="q_pick" value="${q.id}" onchange="updatePickCount('q_pick','qSelectedCount','questions')">
+        <span>${escapeHtml(q.question_text.substring(0,70))} <small class="text-muted">(${q.subject}, ${q.difficulty}, ${q.marks}m)</small></span>
+      </label>
+    `).join('');
+  }
+
+  // Load students for picker
+  const { ok: sok, data: sdata } = await API.get('/exams/students-list');
+  const sList = document.getElementById('studentPickerList');
+  if (!sok || !sdata.data?.length) {
+    sList.innerHTML = '<p class="text-muted text-sm" style="padding:.5rem;">No students registered yet.</p>';
+  } else {
+    sList.innerHTML = sdata.data.map(s => `
+      <label class="checkbox-item">
+        <input type="checkbox" name="s_pick" value="${s.id}" onchange="updatePickCount('s_pick','sSelectedCount','students')">
+        <span>${escapeHtml(s.name)} <small class="text-muted">(${s.roll_number})</small></span>
+      </label>
+    `).join('');
+  }
+  openModal('createExamModal');
+}
+
+function updatePickCount(name, countId, label) {
+  const n = document.querySelectorAll(`input[name="${name}"]:checked`).length;
+  document.getElementById(countId).textContent = `${n} ${label} selected`;
+}
+
+async function createExam() {
+  clearAlert('alertBox-em');
+  const question_ids = [...document.querySelectorAll('input[name="q_pick"]:checked')].map(i => parseInt(i.value));
+  const student_ids  = [...document.querySelectorAll('input[name="s_pick"]:checked')].map(i => parseInt(i.value));
+
+  const payload = {
+    title:        document.getElementById('e_title').value.trim(),
+    subject:      document.getElementById('e_subject').value.trim(),
+    description:  document.getElementById('e_description').value.trim(),
+    duration_mins:parseInt(document.getElementById('e_duration').value),
+    scheduled_at: document.getElementById('e_scheduled_at').value,
+    question_ids, student_ids,
+  };
+  if (!payload.title || !payload.subject || !payload.scheduled_at) {
+    return showAlert('alertBox-em', 'Please fill all required fields.', 'error');
+  }
+  if (!payload.question_ids.length) {
+    return showAlert('alertBox-em', 'Please select at least one question.', 'error');
+  }
+  const btn = document.getElementById('createExamBtn');
+  setLoading(btn, true);
+  const { ok, data } = await API.post('/exams', payload);
+  setLoading(btn, false);
+  if (ok) {
+    closeModal('createExamModal');
+    loadExams();
+  } else {
+    showAlert('alertBox-em', data.message || 'Failed to create exam.', 'error');
+  }
+}
+
+async function toggleExam(id) {
+  await API.patch(`/exams/${id}/toggle`, {});
+  loadExams();
+}
+
+async function deleteExam(id) {
+  if (!confirm('Delete this exam and all its results?')) return;
+  await API.delete(`/exams/${id}`);
+  loadExams();
+}
+
+/* ── Results ─────────────────────────────────────────────── */
+async function loadResultsExamList() {
+  const { ok, data } = await API.get('/exams/teacher');
+  const sel = document.getElementById('resultExamSelect');
+  sel.innerHTML = '<option value="">— Select an exam —</option>';
+  if (ok && data.data) {
+    data.data.forEach(e => {
+      sel.innerHTML += `<option value="${e.id}">${escapeHtml(e.title)}</option>`;
+    });
+  }
+  document.getElementById('resultsContainer').classList.add('hidden');
+  document.getElementById('resultsEmpty').classList.remove('hidden');
+}
+
+async function loadExamResults() {
+  const examId = document.getElementById('resultExamSelect').value;
+  document.getElementById('resultsContainer').classList.toggle('hidden', !examId);
+  document.getElementById('resultsEmpty').classList.toggle('hidden', !!examId);
+  if (!examId) return;
+
+  const { ok, data } = await API.get(`/results/exam/${examId}`);
+  if (!ok) return;
+
+  const s = data.stats;
+  document.getElementById('resultStats').innerHTML = `
+    <div class="stat-card"><div class="stat-icon blue">👥</div><div><div class="stat-value">${s.total}</div><div class="stat-label">Attempted</div></div></div>
+    <div class="stat-card"><div class="stat-icon green">📈</div><div><div class="stat-value">${s.avg}%</div><div class="stat-label">Average Score</div></div></div>
+    <div class="stat-card"><div class="stat-icon purple">🏆</div><div><div class="stat-value">${s.highest}%</div><div class="stat-label">Highest Score</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">✅</div><div><div class="stat-value">${s.passed}/${s.total}</div><div class="stat-label">Passed</div></div></div>
+  `;
+  const tbody = document.getElementById('resultsTable');
+  if (!data.data?.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:2rem;">No submissions yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.data.map((r, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${escapeHtml(r.student_name)}</strong></td>
+      <td>${escapeHtml(r.roll_number)}</td>
+      <td>${r.score} / ${r.total_marks}</td>
+      <td>${r.percentage}%</td>
+      <td><span class="badge badge-${gradeColor(r.grade)}">${r.grade}</span></td>
+      <td style="white-space:nowrap;">${formatDate(r.submitted_at)}</td>
+    </tr>
+  `).join('');
+}
+</script>
+</body>
+</html>
