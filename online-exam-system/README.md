@@ -268,8 +268,6 @@ The `docs/` folder contains the complete academic submission document including:
 - API Reference
 - 20 Test Cases (Functional + Security)
 - 4-type Maintenance Plan
-- Setup Guide
-- Sample Data
 
 ---
 
