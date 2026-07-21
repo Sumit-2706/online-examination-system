@@ -60,10 +60,6 @@ router.post('/', authenticate, requireRole('teacher'), async (req, res) => {
   }
 });
 
-// ════════════════════════════════════════════════════════════
-//  TEACHER — List own exams
-//  GET /api/exams/teacher
-// ════════════════════════════════════════════════════════════
 router.get('/teacher', authenticate, requireRole('teacher'), async (req, res) => {
   try {
     const [rows] = await db.query(
