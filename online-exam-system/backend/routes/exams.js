@@ -4,8 +4,7 @@ const db                  = require('../config/db');
 const { authenticate, requireRole } = require('../middleware/auth');
 const router              = express.Router();
 
-//
-// ════════════════════════════════════════════════════════════
+//═════════════════════════════
 router.post('/', authenticate, requireRole('teacher'), async (req, res) => {
   const { title, subject, description, duration_mins, scheduled_at,
           question_ids, student_ids } = req.body;
