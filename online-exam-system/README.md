@@ -279,7 +279,7 @@ The `docs/` folder contains the complete academic submission document including:
 | `ECONNREFUSED` on port 3306 | MySQL service not running — start it |
 | `Port 5000 already in use` | Change PORT in .env to 3001 |
 | Login fails with correct creds | Re-run schema.sql to reset hashed passwords |
-| `Cannot GET /` | Make sure server.js is pointing to correct frontend path |
+| `Cannot GET /` 
 
 ---
 
